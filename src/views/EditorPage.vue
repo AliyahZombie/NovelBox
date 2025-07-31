@@ -54,13 +54,21 @@ export const useUIStore = defineStore('ui', {
         {{ uiStore.rightSidebarCollapsed ? '‹' : '›' }}
       </button>
       
-      <AIPanel 
-        v-show="!uiStore.rightSidebarCollapsed" 
+      <AIPanel
+        v-show="!uiStore.rightSidebarCollapsed"
         :rewrite-session="rewriteSession"
+        :continue-session="continueSession"
         @replace-text="handleReplaceText"
+        @append-text="handleAppendText"
         @close-session="handleCloseSession"
       />
     </div>
+
+    <!-- 续写按钮 -->
+    <ContinueWritingButton
+      v-if="chaptersStore.currentChapter && !rewriteSession && !continueSession"
+      @continue-writing="handleContinueWriting"
+    />
   </div>
 </template>
 
@@ -71,13 +79,15 @@ import { useNovelsStore, useChaptersStore, useUIStore } from '@/stores'
 import ChaptersList from '@/components/editor/ChaptersList.vue'
 import MainEditor from '@/components/editor/MainEditor.vue'
 import AIPanel from '@/components/editor/AIPanel.vue'
+import ContinueWritingButton from '@/components/editor/ContinueWritingButton.vue'
 
 export default {
   name: 'EditorPage',
   components: {
     ChaptersList,
     MainEditor,
-    AIPanel
+    AIPanel,
+    ContinueWritingButton
   },
   props: {
     novelId: {
@@ -94,6 +104,9 @@ export default {
     
     // AI重写会话管理
     const rewriteSession = ref(null)
+
+    // AI续写会话管理
+    const continueSession = ref(null)
 
     const init = async () => {
       // Load novels if not already loaded
@@ -149,6 +162,48 @@ export default {
     // 处理关闭重写会话事件
     const handleCloseSession = () => {
       rewriteSession.value = null
+      continueSession.value = null
+    }
+
+    // 续写相关方法
+    const handleContinueWriting = () => {
+      console.log('=== handleContinueWriting 调试信息 ===')
+      console.log('当前章节:', chaptersStore.currentChapter)
+
+      const currentContent = chaptersStore.currentChapter?.content || ''
+      console.log('当前内容长度:', currentContent.length)
+      console.log('当前内容前100字符:', currentContent.substring(0, 100))
+
+      continueSession.value = {
+        currentContent,
+        chapterContent: currentContent,
+        timestamp: Date.now()
+      }
+
+      console.log('创建续写会话:', continueSession.value)
+    }
+
+    const handleAppendText = (text) => {
+      console.log('=== handleAppendText 调试信息 ===')
+      console.log('接收到的text:', text)
+      console.log('text类型:', typeof text)
+      console.log('当前章节:', chaptersStore.currentChapter)
+      console.log('当前章节内容长度:', chaptersStore.currentChapter?.content?.length)
+
+      // 直接更新章节内容
+      if (chaptersStore.currentChapter && text && typeof text === 'string') {
+        const currentContent = chaptersStore.currentChapter.content || ''
+        const newContent = currentContent + text
+
+        console.log('原内容前100字符:', currentContent.substring(0, 100))
+        console.log('续写内容:', text)
+        console.log('新内容长度:', newContent.length)
+
+        chaptersStore.updateChapterContent(newContent)
+      } else {
+        console.error('handleAppendText 参数错误:', { text, currentChapter: chaptersStore.currentChapter })
+      }
+      continueSession.value = null
     }
 
     onMounted(() => {
@@ -161,10 +216,14 @@ export default {
 
     return {
       uiStore,
+      chaptersStore,
       rewriteSession,
+      continueSession,
       handleStartRewrite,
       handleReplaceText,
-      handleCloseSession
+      handleCloseSession,
+      handleContinueWriting,
+      handleAppendText
     }
   }
 }

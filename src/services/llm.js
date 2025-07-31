@@ -502,18 +502,32 @@ export class LLMService {
    */
   async generateContent(providerName, modelName, request) {
     try {
+      console.log('=== LLMService generateContent 调试信息 ===')
+      console.log('Provider:', providerName)
+      console.log('Model:', modelName)
+      console.log('Request type:', typeof request)
+
       // 查找匹配的提供商
       const provider = this.findProvider(providerName)
       if (!provider) {
+        console.error('Provider not found:', providerName)
         return new LLMResponse({
           error: `Provider not found: ${providerName}`
         })
       }
 
       // 确保request是LLMRequest对象
-      const llmRequest = request instanceof LLMRequest 
-        ? request 
+      const llmRequest = request instanceof LLMRequest
+        ? request
         : new LLMRequest({ prompt: request })
+
+      console.log('=== 最终提示词 ===')
+      console.log('Prompt length:', llmRequest.prompt?.length || 0)
+      console.log('Prompt preview (前500字符):', llmRequest.prompt?.substring(0, 500) || 'No prompt')
+      console.log('Full prompt:', llmRequest.prompt)
+      console.log('Temperature:', llmRequest.temperature)
+      console.log('MaxTokens:', llmRequest.maxTokens)
+      console.log('Stream:', llmRequest.stream)
 
       // 验证模型是否存在
       const availableModels = provider.getAvailableModels()
@@ -532,9 +546,18 @@ export class LLMService {
         })
       }
 
-      return await provider.generateContent(modelName, llmRequest)
+      const result = await provider.generateContent(modelName, llmRequest)
+
+      console.log('=== LLM响应结果 ===')
+      console.log('Success:', result.success)
+      console.log('Content length:', result.content?.length || 0)
+      console.log('Content preview (前200字符):', result.content?.substring(0, 200) || 'No content')
+      console.log('Error:', result.error)
+
+      return result
 
     } catch (error) {
+      console.error('LLMService generateContent error:', error)
       return new LLMResponse({
         error: error.message
       })

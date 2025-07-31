@@ -81,31 +81,128 @@
           </button>
         </div>
       </div>
-      
-      <!-- 默认状态 - 无重写会话时显示 -->
-      <div v-else class="default-state">
-        <div class="welcome-section">
-          <div class="welcome-icon">🤖</div>
-          <h3 class="welcome-title">{{ $t('editor.aiPanel.welcomeTitle') }}</h3>
-          <p class="welcome-description">{{ $t('editor.aiPanel.welcomeDescription') }}</p>
+
+      <!-- AI续写结果显示区域 -->
+      <div v-else-if="continueSession" class="continue-session">
+        <div class="session-header">
+          <div class="session-title">
+            <span class="session-icon">✍️</span>
+            {{ $t('editor.continueWriting.title') }}
+          </div>
+          <button class="close-session-btn" @click="closeContinueSession">
+            ×
+          </button>
         </div>
-        
-        <div class="tips-section">
-          <div class="section-label">{{ $t('editor.aiPanel.tips') }}</div>
-          <div class="tips-list">
-            <div class="tip-item">
-              <span class="tip-icon">💡</span>
-              {{ $t('editor.aiPanel.tip1') }}
+
+        <!-- 续写结果显示 -->
+        <div class="continue-result-section">
+          <div class="section-label">{{ $t('editor.continueWriting.result') }}</div>
+          <div class="continue-result">
+            <div v-if="isStreaming" class="streaming-indicator">
+              <span class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </span>
+              {{ $t('editor.aiPanel.generating') }}
             </div>
-            <div class="tip-item">
-              <span class="tip-icon">✨</span>
-              {{ $t('editor.aiPanel.tip2') }}
+            <div v-else-if="rewriteError" class="error-message">
+              {{ rewriteError }}
             </div>
-            <div class="tip-item">
-              <span class="tip-icon">🎯</span>
-              {{ $t('editor.aiPanel.tip3') }}
+            <div v-else class="result-text">{{ formatRewriteText(displayText) }}</div>
+          </div>
+        </div>
+
+        <!-- 续写操作按钮 -->
+        <div class="session-actions">
+          <button
+            class="action-btn primary"
+            @click="appendText"
+            :disabled="isStreaming || !displayText || rewriteError"
+          >
+            <span class="btn-icon">📝</span>
+            {{ $t('editor.continueWriting.append') }}
+          </button>
+          <button
+            class="action-btn secondary"
+            @click="retryContinue"
+            :disabled="isStreaming"
+          >
+            <span class="btn-icon">🔄</span>
+            {{ $t('common.retry') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 默认状态 - 无重写会话时显示AI功能面板 -->
+      <div v-else class="ai-features-panel">
+        <div class="features-tabs">
+          <button
+            v-for="tab in featureTabs"
+            :key="tab.key"
+            class="feature-tab"
+            :class="{ active: activeFeatureTab === tab.key }"
+            @click="activeFeatureTab = tab.key"
+          >
+            <span class="tab-icon">{{ tab.icon }}</span>
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <div class="feature-content">
+          <!-- 上下文管理器 -->
+          <div v-if="activeFeatureTab === 'context'" class="feature-section">
+            <ContextManager />
+          </div>
+
+          <!-- 世界书编辑器 -->
+          <div v-if="activeFeatureTab === 'worldbook'" class="feature-section">
+            <WorldBookEditor />
+          </div>
+
+          <!-- AI设置 -->
+          <div v-if="activeFeatureTab === 'settings'" class="feature-section">
+            <div class="settings-content">
+              <h4>{{ $t('aiPanel.settings.title') }}</h4>
+              <div class="setting-group">
+                <label>{{ $t('aiPanel.settings.autoSummary') }}</label>
+                <div class="setting-control">
+                  <input
+                    type="checkbox"
+                    v-model="autoSummaryEnabled"
+                    @change="toggleAutoSummary"
+                  />
+                  <span>{{ $t('aiPanel.settings.autoSummaryDesc') }}</span>
+                </div>
+              </div>
+
+              <div class="setting-group">
+                <label>{{ $t('aiPanel.settings.includeFullContext') }}</label>
+                <div class="setting-control">
+                  <input
+                    type="checkbox"
+                    v-model="includeFullContextDefault"
+                    @change="saveSettings"
+                  />
+                  <span>{{ $t('aiPanel.settings.includeFullContextDesc') }}</span>
+                </div>
+              </div>
+
+              <div class="setting-group">
+                <label>{{ $t('aiPanel.settings.alwaysIncludeWorldBook') }}</label>
+                <div class="setting-control">
+                  <input
+                    type="checkbox"
+                    v-model="alwaysIncludeWorldBook"
+                    @change="saveSettings"
+                  />
+                  <span>{{ $t('aiPanel.settings.alwaysIncludeWorldBookDesc') }}</span>
+                </div>
+              </div>
             </div>
           </div>
+
+
         </div>
       </div>
     </div>
@@ -117,24 +214,48 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useUIStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { llmService, LLMRequest } from '@/services'
+import ContextManager from './ContextManager.vue'
+import WorldBookEditor from './WorldBookEditor.vue'
+import { contextManager } from '@/services/contextManager'
+import { ElectronStorageService } from '@/services/electron'
 
 export default {
   name: 'AIPanel',
+  components: {
+    ContextManager,
+    WorldBookEditor
+  },
   props: {
     rewriteSession: {
       type: Object,
       default: null
+    },
+    continueSession: {
+      type: Object,
+      default: null
     }
   },
-  emits: ['replace-text', 'close-session'],
+  emits: ['replace-text', 'close-session', 'append-text'],
   setup(props, { emit }) {
     const { t } = useI18n()
     const uiStore = useUIStore()
-    
+
     const displayText = ref('')
     const isStreaming = ref(false)
     const rewriteError = ref('')
     const furtherPrompt = ref('')
+
+    // AI功能面板相关
+    const activeFeatureTab = ref('context')
+    const autoSummaryEnabled = ref(true)
+    const includeFullContextDefault = ref(false)
+    const alwaysIncludeWorldBook = ref(true)
+
+    const featureTabs = computed(() => [
+      { key: 'context', label: t('aiPanel.tabs.context'), icon: '📝' },
+      { key: 'worldbook', label: t('aiPanel.tabs.worldbook'), icon: '🌍' },
+      { key: 'settings', label: t('aiPanel.tabs.settings'), icon: '⚙️' }
+    ])
     
     const startRewrite = async () => {
       if (!props.rewriteSession) return
@@ -149,8 +270,8 @@ export default {
           throw new Error(t('editor.rewriteTooltip.noModelConfigured'))
         }
         
-        const prompt = generatePrompt(
-          props.rewriteSession.type, 
+        const prompt = await generatePrompt(
+          props.rewriteSession.type,
           props.rewriteSession.originalText,
           props.rewriteSession.customPrompt || ''
         )
@@ -201,16 +322,97 @@ export default {
       }
     }
     
-    const generatePrompt = (type, text, customPromptText = '') => {
-      const prompts = {
-        expand: `直接输出结果，不要任何助手提示：请扩写以下文本，增加更多细节、描述和内容，但保持原有的风格和意思：\n\n${text}`,
-        contract: `直接输出结果，不要任何助手提示：请缩写以下文本，保留核心内容和关键信息，使其更加简洁：\n\n${text}`,
-        beautify: `直接输出结果，不要任何助手提示：请优化以下文本的文笔，改进语言表达（如增加修辞、使用高级词汇或增加成语使用）、增强可读性，但保持原意不变：\n\n${text}`,
-        custom: customPromptText ? `直接输出结果，不要任何助手提示：${customPromptText}\n\n文本：${text}` : text
+    const generatePrompt = async (type, text, customPromptText = '') => {
+      // 获取当前章节完整内容作为上下文
+      const chapterContext = await getChapterContext()
+
+      // 检查是否需要包含全本概括
+      const includeFullContext = includeFullContextDefault.value ||
+        (props.rewriteSession && props.rewriteSession.includeFullContext)
+
+      let contextInfo = ''
+
+      // 添加章节上下文
+      if (chapterContext.fullContent && chapterContext.fullContent !== text) {
+        contextInfo += `\n\n【章节完整内容作为上下文参考】：\n${chapterContext.fullContent}\n`
       }
-      console.log(customPromptText)
-      // console.log(prompts)
-      return prompts[type] || text
+
+      // 添加全本概括
+      if (includeFullContext && chapterContext.fullBookSummary) {
+        contextInfo += `\n\n【全书概括】：\n${chapterContext.fullBookSummary}\n`
+      }
+
+      // 添加世界书信息（总是包含）
+      if (chapterContext.worldBook) {
+        const worldInfo = formatWorldBookInfo(chapterContext.worldBook)
+        if (worldInfo) {
+          contextInfo += `\n\n【世界观设定】：\n${worldInfo}\n`
+        }
+      }
+
+      const basePrompts = {
+        expand: `直接输出结果，不要任何助手提示：请扩写以下文本，增加更多细节、描述和内容，但保持原有的风格和意思。${contextInfo ? '请参考提供的上下文信息，确保内容连贯性和一致性。' : ''}\n\n【需要扩写的文本】：\n${text}${contextInfo}`,
+        contract: `直接输出结果，不要任何助手提示：请缩写以下文本，保留核心内容和关键信息，使其更加简洁。${contextInfo ? '请参考提供的上下文信息，确保内容连贯性。' : ''}\n\n【需要缩写的文本】：\n${text}${contextInfo}`,
+        beautify: `直接输出结果，不要任何助手提示：请优化以下文本的文笔，改进语言表达（如增加修辞、使用高级词汇或增加成语使用）、增强可读性，但保持原意不变。${contextInfo ? '请参考提供的上下文信息，确保风格一致性。' : ''}\n\n【需要优化的文本】：\n${text}${contextInfo}`,
+        custom: customPromptText ? `直接输出结果，不要任何助手提示：${customPromptText}${contextInfo ? '\n\n请参考以下上下文信息：' : ''}\n\n【目标文本】：\n${text}${contextInfo}` : text
+      }
+
+      return basePrompts[type] || text
+    }
+
+    const generateContinuePrompt = async (currentContent, chapterContent) => {
+      console.log('=== generateContinuePrompt 调试信息 ===')
+      console.log('currentContent长度:', currentContent?.length || 0)
+      console.log('chapterContent长度:', chapterContent?.length || 0)
+
+      // 获取章节上下文信息
+      const chapterContext = await getChapterContext()
+      console.log('章节上下文:', chapterContext)
+
+      let contextInfo = ''
+
+      // 总是添加世界书信息（包含人物信息）
+      if (chapterContext.worldBook) {
+        const worldInfo = formatWorldBookInfo(chapterContext.worldBook)
+        if (worldInfo) {
+          contextInfo += `\n\n【世界观设定】：\n${worldInfo}\n`
+          console.log('添加了世界书信息')
+        }
+      }
+
+      // 添加全本概括
+      if (chapterContext.fullBookSummary) {
+        contextInfo += `\n\n【全书概括】：\n${chapterContext.fullBookSummary}\n`
+        console.log('添加了全书概括')
+      }
+
+      // 添加完整的章节内容作为上下文
+      if (chapterContext.fullContent && chapterContext.fullContent !== currentContent) {
+        contextInfo += `\n\n【章节完整内容】：\n${chapterContext.fullContent}\n`
+        console.log('添加了章节完整内容')
+      }
+
+      const prompt = `请根据以下内容继续写作，保持风格一致，情节自然流畅。续写长度约200-500字。
+
+要求：
+1. 保持与前文的风格和语调一致
+2. 情节发展要自然合理
+3. 人物行为符合设定
+4. 注意世界观的一致性
+5. 直接输出续写内容，不要重复已有内容
+6. 不要任何说明或前缀
+
+${contextInfo}
+
+【当前内容】：
+${currentContent}
+
+【请从这里继续写作，不要重复上面的内容】：`
+
+      console.log('生成的提示词长度:', prompt.length)
+      console.log('提示词预览:', prompt.substring(0, 300))
+
+      return prompt
     }
     
     const getRewriteTypeLabel = (type) => {
@@ -265,7 +467,135 @@ export default {
     const closeRewriteSession = () => {
       emit('close-session')
     }
-    
+
+    // 续写相关方法
+    const closeContinueSession = () => {
+      emit('close-session')
+    }
+
+    const appendText = () => {
+      console.log('=== AIPanel appendText 调试信息 ===')
+      console.log('displayText.value:', displayText.value)
+      console.log('displayText类型:', typeof displayText.value)
+      console.log('isStreaming:', isStreaming.value)
+      console.log('rewriteError:', rewriteError.value)
+
+      if (displayText.value && !isStreaming.value && !rewriteError.value) {
+        console.log('准备emit append-text:', displayText.value)
+        emit('append-text', displayText.value)
+        emit('close-session')
+      } else {
+        console.error('appendText 条件不满足:', {
+          hasDisplayText: !!displayText.value,
+          isStreaming: isStreaming.value,
+          hasError: !!rewriteError.value
+        })
+      }
+    }
+
+    const retryContinue = () => {
+      if (!isStreaming.value) {
+        startContinue()
+      }
+    }
+
+    const startContinue = async () => {
+      console.log('=== startContinue 调试信息 ===')
+      console.log('continueSession:', props.continueSession)
+
+      if (!props.continueSession) {
+        console.error('没有续写会话')
+        return
+      }
+
+      try {
+        displayText.value = ''
+        isStreaming.value = true
+        rewriteError.value = null
+
+        console.log('开始生成续写提示词...')
+        const prompt = await generateContinuePrompt(
+          props.continueSession.currentContent,
+          props.continueSession.chapterContent
+        )
+
+        console.log('续写提示词生成完成，长度:', prompt.length)
+
+        // 获取AI配置 - 使用与重写相同的配置
+        const aiConfig = getRewriteConfig()
+        const config = aiConfig || { provider: 'openai', model: 'gpt-3.5-turbo' }
+
+        console.log('AI配置:', config)
+
+        const { LLMRequest } = await import('@/services')
+        const llmRequest = new LLMRequest({
+          prompt,
+          maxTokens: 1000,
+          temperature: 0.8,
+          stream: false // 先改为非流式，避免流式处理的问题
+        })
+
+        console.log('调用LLM服务...')
+        const response = await llmService.generateContent(
+          config.provider,
+          config.model,
+          llmRequest
+        )
+
+        console.log('LLM响应:', response)
+
+        if (response.success) {
+          let content = response.content || response.data || ''
+          console.log('原始续写内容:', content)
+
+          // 检查并移除重复的原始内容
+          const originalContent = props.continueSession.currentContent
+          if (content.startsWith(originalContent)) {
+            content = content.substring(originalContent.length).trim()
+            console.log('移除重复内容后:', content)
+          }
+
+          // 如果内容为空，说明AI没有生成新内容
+          if (!content) {
+            throw new Error('AI没有生成新的续写内容')
+          }
+
+          displayText.value = content
+        } else {
+          throw new Error(response.error || '续写失败')
+        }
+      } catch (error) {
+        console.error('续写失败:', error)
+        rewriteError.value = error.message
+      } finally {
+        isStreaming.value = false
+      }
+    }
+
+    // AI功能面板方法
+    const toggleAutoSummary = () => {
+      contextManager.setAutoSummaryEnabled(autoSummaryEnabled.value)
+    }
+
+    const saveSettings = () => {
+      // 保存设置到本地存储或配置文件
+      localStorage.setItem('includeFullContextDefault', includeFullContextDefault.value.toString())
+      localStorage.setItem('alwaysIncludeWorldBook', alwaysIncludeWorldBook.value.toString())
+    }
+
+    // 初始化设置
+    const initSettings = () => {
+      autoSummaryEnabled.value = contextManager.isAutoSummaryEnabled()
+      const savedSetting = localStorage.getItem('includeFullContextDefault')
+      if (savedSetting !== null) {
+        includeFullContextDefault.value = savedSetting === 'true'
+      }
+      const savedWorldBookSetting = localStorage.getItem('alwaysIncludeWorldBook')
+      if (savedWorldBookSetting !== null) {
+        alwaysIncludeWorldBook.value = savedWorldBookSetting === 'true'
+      }
+    }
+
     // 监听重写会话变化，自动开始重写
     watch(() => props.rewriteSession, (newSession) => {
       if (newSession) {
@@ -274,6 +604,122 @@ export default {
         })
       }
     }, { immediate: true })
+
+    // 监听续写会话变化，自动开始续写
+    watch(() => props.continueSession, (newSession) => {
+      if (newSession) {
+        nextTick(() => {
+          startContinue()
+        })
+      }
+    }, { immediate: true })
+
+    // 获取章节上下文信息
+    const getChapterContext = async () => {
+      const { useNovelsStore } = await import('@/stores/novels')
+      const { useChaptersStore } = await import('@/stores/chapters')
+      const novelsStore = useNovelsStore()
+      const chaptersStore = useChaptersStore()
+
+      if (!novelsStore.currentNovel || !chaptersStore.currentChapter) {
+        return {}
+      }
+
+      const context = {
+        fullContent: chaptersStore.currentChapter.content || '',
+        fullBookSummary: null,
+        worldBook: null
+      }
+
+      try {
+        // 获取全本概括（可选）
+        if (includeFullContextDefault.value) {
+          const summaryResult = await contextManager.generateFullBookSummary(novelsStore.currentNovel.id)
+          if (summaryResult.success) {
+            context.fullBookSummary = summaryResult.data
+          }
+        }
+
+        // 总是获取世界书
+        const worldBookResult = await ElectronStorageService.loadWorldBook(novelsStore.currentNovel.id)
+        if (worldBookResult.success && worldBookResult.data) {
+          context.worldBook = worldBookResult.data
+        }
+      } catch (error) {
+        console.error('获取章节上下文失败:', error)
+      }
+
+      return context
+    }
+
+    // 格式化世界书信息
+    const formatWorldBookInfo = (worldBook) => {
+      console.log('=== formatWorldBookInfo 调试信息 ===')
+      console.log('worldBook:', worldBook)
+
+      if (!worldBook || !worldBook.settings) {
+        console.log('世界书或设置为空')
+        return ''
+      }
+
+      const parts = []
+      const settings = worldBook.settings
+      console.log('settings:', settings)
+
+      // 世界设定
+      if (settings.world && settings.world.name) {
+        parts.push(`世界名称：${settings.world.name}`)
+        if (settings.world.description) {
+          parts.push(`世界描述：${settings.world.description}`)
+        }
+        if (settings.world.rules && settings.world.rules.length > 0) {
+          parts.push(`世界规则：${settings.world.rules.join('；')}`)
+        }
+        console.log('添加了世界设定')
+      }
+
+      // 主要人物
+      console.log('检查人物信息:', settings.characters)
+      if (settings.characters && settings.characters.length > 0) {
+        console.log('人物数量:', settings.characters.length)
+        const characterInfo = settings.characters
+          .filter(c => c.name)
+          .map(c => {
+            console.log('处理人物:', c)
+            let info = `${c.name}：${c.description || ''}`
+            if (c.example) {
+              info += `\n描写示例：${c.example}`
+            }
+            if (c.traits && c.traits.length > 0) {
+              info += `\n特征：${c.traits.join('、')}`
+            }
+            return info
+          })
+          .join('\n\n')
+        if (characterInfo) {
+          parts.push(`主要人物：\n${characterInfo}`)
+          console.log('添加了人物信息:', characterInfo)
+        }
+      } else {
+        console.log('没有人物信息')
+      }
+
+      // 重要地点
+      if (settings.locations && settings.locations.length > 0) {
+        const locationInfo = settings.locations
+          .filter(l => l.name)
+          .map(l => `${l.name}：${l.description || ''}`)
+          .join('；')
+        if (locationInfo) {
+          parts.push(`重要地点：${locationInfo}`)
+        }
+      }
+
+      return parts.join('\n')
+    }
+
+    // 初始化
+    initSettings()
     
     return {
       uiStore,
@@ -286,7 +732,19 @@ export default {
       replaceText,
       retryRewrite,
       applyFurtherRequest,
-      closeRewriteSession
+      closeRewriteSession,
+      // 续写相关
+      closeContinueSession,
+      appendText,
+      retryContinue,
+      // AI功能面板
+      activeFeatureTab,
+      featureTabs,
+      autoSummaryEnabled,
+      includeFullContextDefault,
+      alwaysIncludeWorldBook,
+      toggleAutoSummary,
+      saveSettings
     }
   }
 }
@@ -687,5 +1145,134 @@ export default {
 .theme-oled .rewrite-result::-webkit-scrollbar-thumb:hover,
 .theme-oled .original-text::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* AI功能面板样式 */
+.ai-features-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.features-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--sidebar-bg);
+}
+
+.feature-tab {
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  flex: 1;
+  justify-content: center;
+}
+
+.feature-tab:hover {
+  color: var(--text-primary);
+  background: var(--hover-bg);
+}
+
+.feature-tab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.feature-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.feature-section {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.settings-content {
+  padding: 20px;
+}
+
+.settings-content h4 {
+  margin: 0 0 20px 0;
+  color: var(--text-primary);
+}
+
+.setting-group {
+  margin-bottom: 20px;
+}
+
+.setting-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-control input[type="checkbox"] {
+  margin: 0;
+}
+
+.setting-control span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.tips-content {
+  padding: 20px;
+}
+
+.tips-content h4 {
+  margin: 0 0 20px 0;
+  color: var(--text-primary);
+}
+
+.tips-content .tips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tips-content .tip-item {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.tips-content .tip-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.tip-content {
+  flex: 1;
+}
+
+.tip-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.tip-desc {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 </style>

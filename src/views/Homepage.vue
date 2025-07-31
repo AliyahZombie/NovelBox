@@ -66,11 +66,18 @@
       @create="createNovel"
     />
     
-    <EditNovelModal 
+    <EditNovelModal
       v-if="uiStore.showEditNovelModal"
       :novel="uiStore.editNovelData"
       @close="uiStore.closeEditNovelModal"
       @update="updateNovel"
+    />
+
+    <!-- 数据迁移对话框 -->
+    <MigrationDialog
+      :visible="showMigrationDialog"
+      @complete="handleMigrationComplete"
+      @cancel="handleMigrationCancel"
     />
   </div>
 </template>
@@ -81,16 +88,19 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useNovelsStore, useUIStore } from '@/stores'
 import { UtilsService } from '@/services'
+import { dataMigrationService } from '@/services/dataMigration'
 import NewNovelModal from '@/components/modals/NewNovelModal.vue'
 import EditNovelModal from '@/components/modals/EditNovelModal.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import MigrationDialog from '@/components/migration/MigrationDialog.vue'
 
 export default {
   name: 'Homepage',
   components: {
     NewNovelModal,
     EditNovelModal,
-    LanguageSwitcher
+    LanguageSwitcher,
+    MigrationDialog
   },
   setup() {
     const router = useRouter()
@@ -99,6 +109,7 @@ export default {
     const uiStore = useUIStore()
 
     const searchQuery = ref('')
+    const showMigrationDialog = ref(false)
     
     const filteredNovels = computed(() => {
       if (!searchQuery.value) {
@@ -204,10 +215,44 @@ export default {
       router.push('/settings')
     }
     
-    // 在组件挂载时加载小说数据
-    onMounted(async () => {
-      if (!novelsStore.hasNovels) {
+    // 处理迁移完成
+    const handleMigrationComplete = async (result) => {
+      showMigrationDialog.value = false
+      if (result && result.success) {
+        // 迁移成功后重新加载数据
         await novelsStore.loadNovels()
+        uiStore.showSaveMessage(t('migration.migrationCompleteMessage'))
+      }
+    }
+
+    // 处理迁移取消
+    const handleMigrationCancel = () => {
+      showMigrationDialog.value = false
+    }
+
+    // 在组件挂载时检查迁移和加载小说数据
+    onMounted(async () => {
+      try {
+        // 首先检查是否需要迁移
+        const needsMigration = await dataMigrationService.needsMigration()
+        if (needsMigration) {
+          showMigrationDialog.value = true
+          return
+        }
+
+        // 如果不需要迁移，正常加载数据
+        if (!novelsStore.hasNovels) {
+          await novelsStore.loadNovels()
+        }
+      } catch (error) {
+        console.error('初始化失败:', error)
+        const errorMessage = error.message || t('common.initError')
+        const details = `初始化信息:\n当前路径: ${window.location.href}\n用户代理: ${navigator.userAgent}\n错误详情: ${error.stack || error.message || '未知错误'}`
+
+        uiStore.showError(
+          `应用初始化失败: ${errorMessage}`,
+          details
+        )
       }
     })
     
@@ -224,7 +269,10 @@ export default {
       deleteNovel,
       openNovel,
       exportNovel,
-      goToSettings
+      goToSettings,
+      showMigrationDialog,
+      handleMigrationComplete,
+      handleMigrationCancel
     }
   }
 }

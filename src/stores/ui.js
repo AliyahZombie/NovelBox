@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import toast from '@/services/toast'
 
 export const useUIStore = defineStore('ui', {
   state: () => ({
@@ -79,10 +80,32 @@ export const useUIStore = defineStore('ui', {
       // 如果没有传入消息，则使用默认的自动保存消息
       this.saveIndicatorMessage = message || '已自动保存'
       this.showSaveIndicator = true
-      
+
       setTimeout(() => {
         this.showSaveIndicator = false
       }, 2000)
+    },
+
+    // Error display
+    showError(message, details = '') {
+      // 使用Toast显示错误消息，包含详细信息
+      toast.error(message, '错误', details)
+      console.error('UI Error:', message, details ? `\nDetails: ${details}` : '')
+    },
+
+    // Success message
+    showSuccess(message) {
+      toast.success(message)
+    },
+
+    // Warning message
+    showWarning(message) {
+      toast.warning(message)
+    },
+
+    // Info message
+    showInfo(message) {
+      toast.info(message)
     },
 
     // Storage path
