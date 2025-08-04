@@ -1,0 +1,86 @@
+name: CI (Simple)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    env:
+      # 禁用所有不必要的网络调用
+      NO_UPDATE_NOTIFIER: 1
+      DISABLE_OPENCOLLECTIVE: 1
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci --prefer-offline --no-audit --no-fund
+      
+    - name: Build Vue application
+      run: npm run build
+      
+    - name: Check if build artifacts exist
+      run: |
+        if [ ! -d "dist" ]; then
+          echo "Build failed: dist directory not found"
+          exit 1
+        fi
+        echo "Build successful: dist directory created"
+        ls -la dist/
+
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    env:
+      NO_UPDATE_NOTIFIER: 1
+      DISABLE_OPENCOLLECTIVE: 1
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci --prefer-offline --no-audit --no-fund
+      
+    - name: Check package.json scripts
+      run: |
+        echo "Available scripts:"
+        npm run
+        
+    # 如果有测试脚本，取消注释下面的步骤
+    # - name: Run tests
+    #   run: npm test
+    #   if: ${{ !contains(fromJson('["Error: no test specified"]'), steps.check-scripts.outputs.test) }}
+      
+    - name: Validate electron-builder config
+      run: |
+        echo "Validating electron-builder configuration..."
+        node -e "
+          try {
+            const config = require('./electron-builder.config.js');
+            console.log('✅ electron-builder config is valid');
+            console.log('Configured platforms:', Object.keys(config).filter(k => ['win', 'mac', 'linux'].includes(k)));
+          } catch (e) {
+            console.error('❌ electron-builder config error:', e.message);
+            process.exit(1);
+          }
+        "

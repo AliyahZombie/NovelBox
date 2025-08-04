@@ -1,15 +1,24 @@
-name: CI
+name: CI (Full Build)
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
+    # 只在main分支进行完整构建
+  schedule:
+    # 每周日凌晨2点进行完整构建测试
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    # 允许手动触发
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
+    env:
+      # 禁用不必要的GitHub API调用
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+      ELECTRON_CACHE: .cache/electron
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -51,6 +60,13 @@ jobs:
             build-cmd: npm run dist -- --mac
 
     runs-on: ${{ matrix.os }}
+
+    env:
+      # 禁用不必要的GitHub API调用和更新检查
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+      ELECTRON_CACHE: .cache/electron
+      NO_UPDATE_NOTIFIER: 1
+      DISABLE_OPENCOLLECTIVE: 1
 
     steps:
     - name: Checkout code

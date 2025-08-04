@@ -1,4 +1,4 @@
-name: Release
+name: Release (with GitHub App Token)
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
     needs: check-release
     if: needs.check-release.outputs.should-release == 'true'
     strategy:
-      fail-fast: false  # 不要因为一个平台失败就停止其他平台
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -50,8 +50,14 @@ jobs:
           - os: macos-latest
             platform: macos
             build-cmd: npm run dist -- --mac
-
+            
     runs-on: ${{ matrix.os }}
+    
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+      ELECTRON_CACHE: .cache/electron
+      NO_UPDATE_NOTIFIER: 1
+      DISABLE_OPENCOLLECTIVE: 1
     
     steps:
     - name: Checkout code
@@ -68,14 +74,14 @@ jobs:
       
     - name: Build Vue application
       run: npm run build
-
+      
     - name: Build Electron app (${{ matrix.platform }})
       run: ${{ matrix.build-cmd }}
       continue-on-error: false
       
     - name: Upload release artifacts
       uses: actions/upload-artifact@v4
-      if: always()  # 即使构建失败也尝试上传已有的文件
+      if: always()
       with:
         name: release-${{ matrix.platform }}
         path: dist/
@@ -85,22 +91,24 @@ jobs:
     needs: [check-release, release]
     if: always() && needs.check-release.outputs.should-release == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    # 使用GitHub App生成token (需要配置APP_ID和PRIVATE_KEY)
+    - name: Generate GitHub App Token
+      id: app-token
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ secrets.APP_ID }}
+        private-key: ${{ secrets.PRIVATE_KEY }}
+      # 如果不使用GitHub App，注释掉上面的步骤
+      
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
         path: ./artifacts
-        
-    - name: List downloaded files
-      run: |
-        echo "Downloaded artifacts:"
-        find ./artifacts -type f -name "*" | head -20
         
     - name: Create Release with files
       uses: softprops/action-gh-release@v1
@@ -117,15 +125,6 @@ jobs:
           - Windows (x64) - NSIS安装包和ZIP便携版
           - macOS (x64, ARM64) - DMG安装包和ZIP便携版  
           - Linux (x64) - AppImage和DEB包
-          
-          ### 安装说明
-          1. **Windows**: 下载 `.exe` 文件进行安装，或下载 `.zip` 文件解压使用
-          2. **macOS**: 下载 `.dmg` 文件进行安装，或下载 `.zip` 文件解压使用
-          3. **Linux**: 下载 `.AppImage` 文件直接运行，或下载 `.deb` 文件用包管理器安装
-          
-          ---
-          
-          **完整更新日志:** [查看所有更改](https://github.com/${{ github.repository }}/commits/main)
         files: |
           ./artifacts/release-windows/*
           ./artifacts/release-macos/*
@@ -133,6 +132,7 @@ jobs:
         draft: false
         prerelease: false
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # 如果需要使用自定义token，取消注释下面一行并注释上面一行
-        # GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        # 选择使用哪种token (三选一)
+        GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}  # GitHub App token
+        # GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}         # Personal Access Token
+        # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}          # 内置token
