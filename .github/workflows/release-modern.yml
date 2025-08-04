@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      should-release: ${{ steps.check.outputs.should-release }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check if commit message starts with 'release'
+      id: check
+      run: |
+        COMMIT_MSG="${{ github.event.head_commit.message }}"
+        if [[ "$COMMIT_MSG" =~ ^release.* ]]; then
+          echo "should-release=true" >> $GITHUB_OUTPUT
+          echo "Release commit detected: $COMMIT_MSG"
+        else
+          echo "should-release=false" >> $GITHUB_OUTPUT
+          echo "Not a release commit: $COMMIT_MSG"
+        fi
+        
+    - name: Get version from package.json
+      id: version
+      if: steps.check.outputs.should-release == 'true'
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        echo "version=v$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: v$VERSION"
+
+  release:
+    needs: check-release
+    if: needs.check-release.outputs.should-release == 'true'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+            
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build Vue application
+      run: npm run build
+      
+    - name: Build Electron app (Linux)
+      if: matrix.platform == 'linux'
+      run: npm run dist -- --linux
+      
+    - name: Build Electron app (Windows)
+      if: matrix.platform == 'windows'
+      run: npm run dist -- --win
+      
+    - name: Build Electron app (macOS)
+      if: matrix.platform == 'macos'
+      run: npm run dist -- --mac
+      
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-${{ matrix.platform }}
+        path: dist/
+        retention-days: 30
+
+  create-release:
+    needs: [check-release, release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+        
+    - name: List downloaded files
+      run: |
+        echo "Downloaded artifacts:"
+        find ./artifacts -type f -name "*" | head -20
+        
+    - name: Create Release with files
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.check-release.outputs.version }}
+        name: NovelBox ${{ needs.check-release.outputs.version }}
+        body: |
+          ## NovelBox ${{ needs.check-release.outputs.version }}
+          
+          ### 更新内容
+          请查看提交历史了解详细更新内容。
+          
+          ### 支持的平台
+          - Windows (x64) - NSIS安装包和ZIP便携版
+          - macOS (x64, ARM64) - DMG安装包和ZIP便携版  
+          - Linux (x64) - AppImage和DEB包
+          
+          ### 安装说明
+          1. **Windows**: 下载 `.exe` 文件进行安装，或下载 `.zip` 文件解压使用
+          2. **macOS**: 下载 `.dmg` 文件进行安装，或下载 `.zip` 文件解压使用
+          3. **Linux**: 下载 `.AppImage` 文件直接运行，或下载 `.deb` 文件用包管理器安装
+          
+          ---
+          
+          **完整更新日志:** [查看所有更改](https://github.com/${{ github.repository }}/commits/main)
+        files: |
+          ./artifacts/release-windows/*
+          ./artifacts/release-macos/*
+          ./artifacts/release-linux/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

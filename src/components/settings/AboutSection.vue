@@ -1,28 +1,64 @@
 <template>
-  <div class="settings-section about-section">
+  <div class="settings-section">
+    <h2 class="section-title">{{ $t('about.title') }}</h2>
+    
     <div class="about-content">
-      <div class="app-info">
-        <h1 class="app-name">{{ $t('about.appName') }}</h1>
+      <div class="app-info-card">
+        <div class="app-header">
+          <div class="app-icon">📚</div>
+          <div class="app-meta">
+            <h1 class="app-name">{{ $t('about.appName') }}</h1>
+            <p class="app-version">{{ $t('about.version', { version: '1.0.0' }) }}</p>
+          </div>
+        </div>
         <p class="app-description">{{ $t('about.appDescription') }}</p>
-        <p class="app-version">{{ $t('about.version', { version: '1.0.0' }) }}</p>
       </div>
       
-      <div class="links">
-        <div class="link-item">
-          <span class="link-label">{{ $t('about.github') }}：</span>
-          <a href="https://github.com/AliyahZombie/NovelBox" target="_blank" class="link-url">
-            https://github.com/AliyahZombie/NovelBox
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="info-header">
+            <span class="info-icon">🔗</span>
+            <h3 class="info-title">{{ $t('about.github') }}</h3>
+          </div>
+          <a href="https://github.com/AliyahZombie/NovelBox" target="_blank" class="info-link">
+            github.com/AliyahZombie/NovelBox
           </a>
         </div>
-        <div class="link-item">
-          <span class="link-label">{{ $t('about.contact') }}：</span>
-          <a href="mailto:aliyahzombie2024@gmail.com" class="link-url">
+        
+        <div class="info-card">
+          <div class="info-header">
+            <span class="info-icon">✉️</span>
+            <h3 class="info-title">{{ $t('about.contact') }}</h3>
+          </div>
+          <a href="mailto:aliyahzombie2024@gmail.com" class="info-link">
             aliyahzombie2024@gmail.com
           </a>
         </div>
-        <div class="link-item">
-          <span class="link-label">{{ $t('about.license') }}: </span>
-          <span class="link-url">AGPL-3.0</span>
+        
+        <div class="info-card">
+          <div class="info-header">
+            <span class="info-icon">📋</span>
+            <h3 class="info-title">{{ $t('about.license') }}</h3>
+          </div>
+          <span class="info-text">AGPL-3.0</span>
+        </div>
+
+        <div class="info-card">
+          <div class="info-header">
+            <span class="info-icon">🔗</span>
+            <h3 class="info-title">LinuxDO</h3>
+          </div>
+          <a href="https://linux.do/u/curaalizm" target="_blank" class="info-link">无水硫酸铜</a>
+        </div>
+
+        <div class="info-card">
+          <div class="info-header">
+            <span class="info-icon">🔗</span>
+            <h3 class="info-title">吾爱破解</h3>
+          </div>
+          <a href="https://www.52pojie.cn/?2413593" target="_blank" class="info-link">
+            curaalizm
+          </a>
         </div>
       </div>
     </div>
@@ -36,73 +72,143 @@ export default {
 </script>
 
 <style scoped>
-.settings-section {
-  max-width: 800px;
-}
-
-.about-section {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-}
-
 .about-content {
-  text-align: center;
-  max-width: 600px;
-  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.app-info-card {
   background: var(--card-bg);
-  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
   box-shadow: var(--card-shadow);
 }
 
-.app-name {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-  color: var(--text-primary);
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.app-icon {
+  font-size: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
   background: var(--accent-color);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  border-radius: 12px;
+  filter: grayscale(0);
+}
+
+.app-meta {
+  flex: 1;
+}
+
+.app-name {
+  font-size: 2rem;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: var(--accent-color);
+}
+
+.app-version {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+  opacity: 0.8;
 }
 
 .app-description {
   font-size: 1.1rem;
-  margin-bottom: 1.5rem;
   color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
 }
 
-.app-version {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin-bottom: 2rem;
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
 }
 
-.links {
-  text-align: left;
-  margin-top: 2rem;
+.info-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.2s ease;
 }
 
-.link-item {
-  margin-bottom: 1rem;
+.info-card:hover {
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--card-shadow);
+}
+
+.info-header {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
-.link-label {
+.info-icon {
+  font-size: 1.5rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-color);
+  border-radius: 6px;
+  filter: grayscale(0);
+}
+
+.info-title {
+  font-size: 1rem;
   font-weight: 500;
   color: var(--text-primary);
-  min-width: 100px;
+  margin: 0;
 }
 
-.link-url {
+.info-link {
   color: var(--accent-color);
   text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
   word-break: break-all;
+  transition: all 0.2s ease;
 }
 
-.link-url:hover {
+.info-link:hover {
   text-decoration: underline;
+  opacity: 0.8;
+}
+
+.info-text {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .app-name {
+    font-size: 1.5rem;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
