@@ -37,42 +37,45 @@ jobs:
   build:
     needs: test
     strategy:
+      fail-fast: false  # 不要因为一个平台失败就停止其他平台
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            build-cmd: npm run dist -- --linux
+          - os: windows-latest
+            platform: windows
+            build-cmd: npm run dist -- --win
+          - os: macos-latest
+            platform: macos
+            build-cmd: npm run dist -- --mac
+
     runs-on: ${{ matrix.os }}
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
-        
+
     - name: Install dependencies
       run: npm ci
-      
+
     - name: Build Vue application
       run: npm run build
-      
-    - name: Build Electron app (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      run: npm run dist -- --linux
-      
-    - name: Build Electron app (Windows)
-      if: matrix.os == 'windows-latest'
-      run: npm run dist -- --win
-      
-    - name: Build Electron app (macOS)
-      if: matrix.os == 'macos-latest'
-      run: npm run dist -- --mac
-      
+
+    - name: Build Electron app (${{ matrix.platform }})
+      run: ${{ matrix.build-cmd }}
+      continue-on-error: false
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
+      if: always()  # 即使构建失败也尝试上传已有的文件
       with:
-        name: build-${{ matrix.os }}
+        name: build-${{ matrix.platform }}
         path: dist/
         retention-days: 7

@@ -38,15 +38,19 @@ jobs:
     needs: check-release
     if: needs.check-release.outputs.should-release == 'true'
     strategy:
+      fail-fast: false  # 不要因为一个平台失败就停止其他平台
       matrix:
         include:
           - os: ubuntu-latest
             platform: linux
+            build-cmd: npm run dist -- --linux
           - os: windows-latest
             platform: windows
+            build-cmd: npm run dist -- --win
           - os: macos-latest
             platform: macos
-            
+            build-cmd: npm run dist -- --mac
+
     runs-on: ${{ matrix.os }}
     
     steps:
@@ -64,21 +68,14 @@ jobs:
       
     - name: Build Vue application
       run: npm run build
-      
-    - name: Build Electron app (Linux)
-      if: matrix.platform == 'linux'
-      run: npm run dist -- --linux
-      
-    - name: Build Electron app (Windows)
-      if: matrix.platform == 'windows'
-      run: npm run dist -- --win
-      
-    - name: Build Electron app (macOS)
-      if: matrix.platform == 'macos'
-      run: npm run dist -- --mac
+
+    - name: Build Electron app (${{ matrix.platform }})
+      run: ${{ matrix.build-cmd }}
+      continue-on-error: false
       
     - name: Upload release artifacts
       uses: actions/upload-artifact@v4
+      if: always()  # 即使构建失败也尝试上传已有的文件
       with:
         name: release-${{ matrix.platform }}
         path: dist/
@@ -86,6 +83,7 @@ jobs:
 
   create-release:
     needs: [check-release, release]
+    if: always() && needs.check-release.outputs.should-release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write

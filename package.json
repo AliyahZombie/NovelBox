@@ -47,10 +47,6 @@
     "vue-router": "^4.5.1"
   },
   "build": {
-    "extends": "./electron-builder.config.js",
-    "maintainer": "NovelBox Team <aliyahzombie2024@gmail.com>",
-    "linux": {
-      "maintainer": "NovelBox Team <aliyahzombie2024@gmail.com>"
-    }
+    "extends": "./electron-builder.config.js"
   }
 }
