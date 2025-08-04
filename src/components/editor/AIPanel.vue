@@ -258,7 +258,13 @@ export default {
     ])
     
     const startRewrite = async () => {
-      if (!props.rewriteSession) return
+      console.log('=== startRewrite called ===')
+      console.log('Rewrite session:', props.rewriteSession)
+      
+      if (!props.rewriteSession) {
+        console.warn('No rewrite session provided')
+        return
+      }
       
       displayText.value = ''
       isStreaming.value = true
@@ -266,6 +272,7 @@ export default {
       
       try {
         const config = getRewriteConfig()
+        console.log('Rewrite config:', config)
         if (!config) {
           throw new Error(t('editor.rewriteTooltip.noModelConfigured'))
         }
@@ -275,7 +282,8 @@ export default {
           props.rewriteSession.originalText,
           props.rewriteSession.customPrompt || ''
         )
-        console.log('Rewrite prompt:', props.rewriteSession.customPrompt)
+        console.log('Rewrite prompt:', prompt)
+        console.log('Rewrite prompt length:', prompt.length)
         
         const request = new LLMRequest({
           prompt: prompt,
@@ -283,6 +291,8 @@ export default {
           temperature: 0.7,
           stream: true
         })
+        
+        console.log('LLM request:', request)
         
         const response = await llmService.generateStreamContent(
           config.provider,
@@ -294,6 +304,8 @@ export default {
             }
           }
         )
+        
+        console.log('LLM response:', response)
         
         if (!response.success) {
           throw new Error(response.error || 'Unknown error')
@@ -310,10 +322,18 @@ export default {
     const getRewriteConfig = () => {
       try {
         const savedConfig = localStorage.getItem('novelbox-rewrite-config')
-        if (!savedConfig) return null
+        console.log('Rewrite config from localStorage:', savedConfig)
+        if (!savedConfig) {
+          console.warn('No rewrite config found in localStorage')
+          return null
+        }
         
         const config = JSON.parse(savedConfig)
-        if (!config.provider || !config.model) return null
+        console.log('Parsed rewrite config:', config)
+        if (!config.provider || !config.model) {
+          console.warn('Invalid rewrite config - missing provider or model:', config)
+          return null
+        }
         
         return config
       } catch (error) {
@@ -321,16 +341,70 @@ export default {
         return null
       }
     }
+
+    const getContinueConfig = () => {
+      try {
+        const savedConfig = localStorage.getItem('novelbox-continue-config')
+        if (!savedConfig) {
+          console.warn('No continue config found in localStorage')
+          return null
+        }
+        
+        const config = JSON.parse(savedConfig)
+        if (!config.provider || !config.model) {
+          console.warn('Invalid continue config - missing provider or model:', config)
+          return null
+        }
+        
+        return config
+      } catch (error) {
+        console.error('Failed to load continue config:', error)
+        return null
+      }
+    }
+
+    const getSummaryConfig = () => {
+      try {
+        const savedConfig = localStorage.getItem('novelbox-summary-config')
+        if (!savedConfig) {
+          console.warn('No summary config found in localStorage')
+          return null
+        }
+        
+        const config = JSON.parse(savedConfig)
+        if (!config.provider || !config.model) {
+          console.warn('Invalid summary config - missing provider or model:', config)
+          return null
+        }
+        
+        return config
+      } catch (error) {
+        console.error('Failed to load summary config:', error)
+        return null
+      }
+    }
     
     const generatePrompt = async (type, text, customPromptText = '') => {
+      console.log('=== generatePrompt called ===')
+      console.log('Type:', type)
+      console.log('Text:', text)
+      console.log('Custom prompt text:', customPromptText)
+
       // 获取当前章节完整内容作为上下文
       const chapterContext = await getChapterContext()
+      console.log('Chapter context:', chapterContext)
 
       // 检查是否需要包含全本概括
       const includeFullContext = includeFullContextDefault.value ||
         (props.rewriteSession && props.rewriteSession.includeFullContext)
 
       let contextInfo = ''
+
+       // 添加章节标题信息
+      if (chapterContext.chapterTitle) {
+        contextInfo += `\n\n【当前章节】：${chapterContext.chapterTitle}\n`
+        console.log('添加了章节标题信息')
+      }
 
       // 添加章节上下文
       if (chapterContext.fullContent && chapterContext.fullContent !== text) {
@@ -357,7 +431,9 @@ export default {
         custom: customPromptText ? `直接输出结果，不要任何助手提示：${customPromptText}${contextInfo ? '\n\n请参考以下上下文信息：' : ''}\n\n【目标文本】：\n${text}${contextInfo}` : text
       }
 
-      return basePrompts[type] || text
+      const prompt = basePrompts[type] || text
+      console.log('Generated prompt:', prompt)
+      return prompt
     }
 
     const generateContinuePrompt = async (currentContent, chapterContent) => {
@@ -370,6 +446,12 @@ export default {
       console.log('章节上下文:', chapterContext)
 
       let contextInfo = ''
+
+      // 添加章节标题信息
+      if (chapterContext.chapterTitle) {
+        contextInfo += `\n\n【当前章节】：${chapterContext.chapterTitle}\n`
+        console.log('添加了章节标题信息')
+      }
 
       // 总是添加世界书信息（包含人物信息）
       if (chapterContext.worldBook) {
@@ -521,11 +603,12 @@ ${currentContent}
 
         console.log('续写提示词生成完成，长度:', prompt.length)
 
-        // 获取AI配置 - 使用与重写相同的配置
-        const aiConfig = getRewriteConfig()
-        const config = aiConfig || { provider: 'openai', model: 'gpt-3.5-turbo' }
+        // 获取续写AI配置
+        const aiConfig = getContinueConfig()
+        console.log('Continue config:', aiConfig)
+        const config = aiConfig || getRewriteConfig() || { provider: 'openai', model: 'gpt-3.5-turbo' }
 
-        console.log('AI配置:', config)
+        console.log('最终使用的AI配置:', config)
 
         const { LLMRequest } = await import('@/services')
         const llmRequest = new LLMRequest({
@@ -616,39 +699,54 @@ ${currentContent}
 
     // 获取章节上下文信息
     const getChapterContext = async () => {
+      console.log('=== getChapterContext called ===')
       const { useNovelsStore } = await import('@/stores/novels')
       const { useChaptersStore } = await import('@/stores/chapters')
       const novelsStore = useNovelsStore()
       const chaptersStore = useChaptersStore()
 
+      console.log('Current novel:', novelsStore.currentNovel)
+      console.log('Current chapter:', chaptersStore.currentChapter)
+
       if (!novelsStore.currentNovel || !chaptersStore.currentChapter) {
+        console.warn('Missing novel or chapter data')
         return {}
       }
 
       const context = {
+        chapterTitle: chaptersStore.currentChapter.title || '',
         fullContent: chaptersStore.currentChapter.content || '',
         fullBookSummary: null,
         worldBook: null
       }
 
+      console.log('Base context:', context)
+
       try {
         // 获取全本概括（可选）
         if (includeFullContextDefault.value) {
+          console.log('Generating full book summary...')
           const summaryResult = await contextManager.generateFullBookSummary(novelsStore.currentNovel.id)
+          console.log('Summary result:', summaryResult)
           if (summaryResult.success) {
             context.fullBookSummary = summaryResult.data
+            console.log('Full book summary:', context.fullBookSummary)
           }
         }
 
         // 总是获取世界书
+        console.log('Loading world book for novel:', novelsStore.currentNovel.id)
         const worldBookResult = await ElectronStorageService.loadWorldBook(novelsStore.currentNovel.id)
+        console.log('World book result:', worldBookResult)
         if (worldBookResult.success && worldBookResult.data) {
           context.worldBook = worldBookResult.data
+          console.log('World book:', context.worldBook)
         }
       } catch (error) {
         console.error('获取章节上下文失败:', error)
       }
 
+      console.log('Final context:', context)
       return context
     }
 
@@ -686,12 +784,19 @@ ${currentContent}
           .filter(c => c.name)
           .map(c => {
             console.log('处理人物:', c)
+            console.log('人物特征:', c.traits)
             let info = `${c.name}：${c.description || ''}`
             if (c.example) {
               info += `\n描写示例：${c.example}`
             }
-            if (c.traits && c.traits.length > 0) {
-              info += `\n特征：${c.traits.join('、')}`
+            if (c.traits && Array.isArray(c.traits) && c.traits.length > 0) {
+              const traitsText = c.traits.filter(t => t && t.trim()).join('、')
+              if (traitsText) {
+                info += `\n特征：${traitsText}`
+                console.log('添加了特征信息:', traitsText)
+              }
+            } else {
+              console.log('没有有效的特征信息:', c.traits)
             }
             return info
           })

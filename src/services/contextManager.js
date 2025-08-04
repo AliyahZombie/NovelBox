@@ -249,10 +249,26 @@ class ContextManagerService {
    */
   async _getAIConfig(novelId) {
     try {
-      // 首先尝试从localStorage读取重写配置（与AIPanel保持一致）
-      const savedConfig = localStorage.getItem('novelbox-rewrite-config')
-      if (savedConfig) {
-        const config = JSON.parse(savedConfig)
+      // 尝试从localStorage读取概括配置
+      const savedSummaryConfig = localStorage.getItem('novelbox-summary-config')
+      if (savedSummaryConfig) {
+        const config = JSON.parse(savedSummaryConfig)
+        if (config.provider && config.model) {
+          return {
+            summaryConfig: {
+              provider: config.provider,
+              model: config.model,
+              temperature: 0.3,
+              maxTokens: 1000
+            }
+          }
+        }
+      }
+      
+      // 尝试从localStorage读取重写配置作为后备
+      const savedRewriteConfig = localStorage.getItem('novelbox-rewrite-config')
+      if (savedRewriteConfig) {
+        const config = JSON.parse(savedRewriteConfig)
         if (config.provider && config.model) {
           return {
             summaryConfig: {
@@ -382,59 +398,14 @@ class ContextManagerService {
         throw new Error('没有可用的章节摘要')
       }
 
-      // 生成全书摘要
-      const combinedSummaries = summaries.map(s => `${s.title}: ${s.summary}`).join('\n\n')
-      const prompt = `基于以下各章节摘要，生成一个完整的小说概括：
-
-${combinedSummaries}
-
-要求：
-1. 概括整体故事脉络和主题
-2. 突出主要人物和关系发展
-3. 总结关键情节转折
-4. 保持逻辑连贯性
-5. 长度控制在500字以内`
-
-      // 获取AI配置
-      const aiConfig = await this._getAIConfig(novelId)
-      const config = aiConfig.summaryConfig || aiConfig.rewriteConfig
-
-      const { LLMRequest } = await import('@/services')
-
-      const llmRequest = new LLMRequest({
-        prompt,
-        maxTokens: config.maxTokens || 1500,
-        temperature: config.temperature || 0.3,
-        stream: false
-      })
-
-      const response = await llmService.generateContent(
-        config.provider || 'openai',
-        config.model || 'gpt-3.5-turbo',
-        llmRequest
-      )
-
-      if (!response.success) {
-        // 提供更详细的错误信息
-        let errorMessage = response.error || '生成全书摘要失败'
-
-        // 处理常见的API错误
-        if (errorMessage.includes('500') && errorMessage.includes('no candidates returned')) {
-          errorMessage = 'AI服务暂时不可用，请稍后重试或检查网络连接'
-        } else if (errorMessage.includes('401')) {
-          errorMessage = 'API密钥无效，请检查设置中的API配置'
-        } else if (errorMessage.includes('429')) {
-          errorMessage = 'API调用频率过高，请稍后重试'
-        } else if (errorMessage.includes('timeout')) {
-          errorMessage = '请求超时，请检查网络连接'
-        }
-
-        throw new Error(errorMessage)
-      }
+      // 直接拼接章节概括，不再使用AI重新概括
+      const fullBookSummary = summaries
+        .map((s, index) => `第${index + 1}章 ${s.title}:\n${s.summary}`)
+        .join('\n\n')
 
       return {
         success: true,
-        data: (response.content || response.data || '').trim(),
+        data: fullBookSummary,
         chapterCount: summaries.length,
         message: '全书摘要生成完成'
       }

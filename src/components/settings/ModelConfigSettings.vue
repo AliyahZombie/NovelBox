@@ -15,9 +15,9 @@
         <div class="config-field">
           <label class="field-label">{{ $t('settings.aiFeatures.selectProvider') }}</label>
           <select 
-            v-model="selectedProvider" 
+            v-model="rewriteConfig.provider" 
             class="setting-select"
-            @change="onProviderChange"
+            @change="onRewriteProviderChange"
           >
             <option value="">{{ $t('settings.aiFeatures.selectProvider') }}</option>
             <option 
@@ -31,16 +31,114 @@
         </div>
 
         <!-- 选择模型 -->
-        <div v-if="selectedProvider" class="config-field">
+        <div v-if="rewriteConfig.provider" class="config-field">
           <label class="field-label">{{ $t('settings.aiFeatures.selectModel') }}</label>
           <select 
-            v-model="selectedModel" 
+            v-model="rewriteConfig.model" 
             class="setting-select"
-            @change="onModelChange"
+            @change="saveRewriteConfig"
           >
             <option value="">{{ $t('settings.aiFeatures.selectModel') }}</option>
             <option 
-              v-for="model in availableModels" 
+              v-for="model in getModelsForProvider(rewriteConfig.provider)" 
+              :key="model.id || model.name"
+              :value="model.id || model.name"
+            >
+              {{ model.displayName || model.id || model.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 续写模型配置 -->
+    <div class="setting-item">
+      <label class="setting-label">{{ $t('settings.aiFeatures.continueModel') }}</label>
+      
+      <div v-if="availableProviders.length === 0" class="no-providers-warning">
+        {{ $t('settings.aiFeatures.noProvidersConfigured') }}
+      </div>
+      
+      <div v-else class="model-config">
+        <!-- 选择提供商 -->
+        <div class="config-field">
+          <label class="field-label">{{ $t('settings.aiFeatures.selectProvider') }}</label>
+          <select 
+            v-model="continueConfig.provider" 
+            class="setting-select"
+            @change="onContinueProviderChange"
+          >
+            <option value="">{{ $t('settings.aiFeatures.selectProvider') }}</option>
+            <option 
+              v-for="provider in availableProviders" 
+              :key="provider.key"
+              :value="provider.key"
+            >
+              {{ provider.name }} ({{ provider.type }})
+            </option>
+          </select>
+        </div>
+
+        <!-- 选择模型 -->
+        <div v-if="continueConfig.provider" class="config-field">
+          <label class="field-label">{{ $t('settings.aiFeatures.selectModel') }}</label>
+          <select 
+            v-model="continueConfig.model" 
+            class="setting-select"
+            @change="saveContinueConfig"
+          >
+            <option value="">{{ $t('settings.aiFeatures.selectModel') }}</option>
+            <option 
+              v-for="model in getModelsForProvider(continueConfig.provider)" 
+              :key="model.id || model.name"
+              :value="model.id || model.name"
+            >
+              {{ model.displayName || model.id || model.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 概括模型配置 -->
+    <div class="setting-item">
+      <label class="setting-label">{{ $t('settings.aiFeatures.summaryModel') }}</label>
+      
+      <div v-if="availableProviders.length === 0" class="no-providers-warning">
+        {{ $t('settings.aiFeatures.noProvidersConfigured') }}
+      </div>
+      
+      <div v-else class="model-config">
+        <!-- 选择提供商 -->
+        <div class="config-field">
+          <label class="field-label">{{ $t('settings.aiFeatures.selectProvider') }}</label>
+          <select 
+            v-model="summaryConfig.provider" 
+            class="setting-select"
+            @change="onSummaryProviderChange"
+          >
+            <option value="">{{ $t('settings.aiFeatures.selectProvider') }}</option>
+            <option 
+              v-for="provider in availableProviders" 
+              :key="provider.key"
+              :value="provider.key"
+            >
+              {{ provider.name }} ({{ provider.type }})
+            </option>
+          </select>
+        </div>
+
+        <!-- 选择模型 -->
+        <div v-if="summaryConfig.provider" class="config-field">
+          <label class="field-label">{{ $t('settings.aiFeatures.selectModel') }}</label>
+          <select 
+            v-model="summaryConfig.model" 
+            class="setting-select"
+            @change="saveSummaryConfig"
+          >
+            <option value="">{{ $t('settings.aiFeatures.selectModel') }}</option>
+            <option 
+              v-for="model in getModelsForProvider(summaryConfig.provider)" 
               :key="model.id || model.name"
               :value="model.id || model.name"
             >
@@ -54,18 +152,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { llmService } from '@/services'
 
-const selectedProvider = ref('')
-const selectedModel = ref('')
+// 配置对象
+const rewriteConfig = ref({ provider: '', model: '' })
+const continueConfig = ref({ provider: '', model: '' })
+const summaryConfig = ref({ provider: '', model: '' })
+
 const availableProviders = ref([])
 
-// 获取当前选择的提供商的可用模型
-const availableModels = computed(() => {
-  if (!selectedProvider.value) return []
-  return llmService.getProviderModels(selectedProvider.value)
-})
+// 获取指定提供商的可用模型
+const getModelsForProvider = (providerKey) => {
+  if (!providerKey) return []
+  return llmService.getProviderModels(providerKey)
+}
 
 // 加载可用的提供商
 const loadProviders = () => {
@@ -73,46 +174,88 @@ const loadProviders = () => {
 }
 
 // 加载已保存的配置
-const loadSavedConfig = () => {
+const loadSavedConfigs = () => {
   try {
-    const savedConfig = localStorage.getItem('novelbox-rewrite-config')
-    if (savedConfig) {
-      const config = JSON.parse(savedConfig)
-      selectedProvider.value = config.provider || ''
-      selectedModel.value = config.model || ''
+    // 加载重写配置
+    const rewriteConfigData = localStorage.getItem('novelbox-rewrite-config')
+    if (rewriteConfigData) {
+      const config = JSON.parse(rewriteConfigData)
+      rewriteConfig.value = {
+        provider: config.provider || '',
+        model: config.model || ''
+      }
+    }
+
+    // 加载续写配置
+    const continueConfigData = localStorage.getItem('novelbox-continue-config')
+    if (continueConfigData) {
+      const config = JSON.parse(continueConfigData)
+      continueConfig.value = {
+        provider: config.provider || '',
+        model: config.model || ''
+      }
+    }
+
+    // 加载概括配置
+    const summaryConfigData = localStorage.getItem('novelbox-summary-config')
+    if (summaryConfigData) {
+      const config = JSON.parse(summaryConfigData)
+      summaryConfig.value = {
+        provider: config.provider || '',
+        model: config.model || ''
+      }
     }
   } catch (error) {
-    console.error('Failed to load rewrite config:', error)
+    console.error('Failed to load AI configs:', error)
   }
 }
 
-// 保存配置
-const saveConfig = () => {
+// 保存重写配置
+const saveRewriteConfig = () => {
   try {
-    const config = {
-      provider: selectedProvider.value,
-      model: selectedModel.value
-    }
-    localStorage.setItem('novelbox-rewrite-config', JSON.stringify(config))
+    localStorage.setItem('novelbox-rewrite-config', JSON.stringify(rewriteConfig.value))
   } catch (error) {
     console.error('Failed to save rewrite config:', error)
   }
 }
 
-// 提供商变更处理
-const onProviderChange = () => {
-  selectedModel.value = '' // 重置模型选择
-  saveConfig()
+// 保存续写配置
+const saveContinueConfig = () => {
+  try {
+    localStorage.setItem('novelbox-continue-config', JSON.stringify(continueConfig.value))
+  } catch (error) {
+    console.error('Failed to save continue config:', error)
+  }
 }
 
-// 模型变更处理
-const onModelChange = () => {
-  saveConfig()
+// 保存概括配置
+const saveSummaryConfig = () => {
+  try {
+    localStorage.setItem('novelbox-summary-config', JSON.stringify(summaryConfig.value))
+  } catch (error) {
+    console.error('Failed to save summary config:', error)
+  }
+}
+
+// 提供商变更处理
+const onRewriteProviderChange = () => {
+  rewriteConfig.value.model = ''
+  saveRewriteConfig()
+}
+
+const onContinueProviderChange = () => {
+  continueConfig.value.model = ''
+  saveContinueConfig()
+}
+
+const onSummaryProviderChange = () => {
+  summaryConfig.value.model = ''
+  saveSummaryConfig()
 }
 
 onMounted(() => {
   loadProviders()
-  loadSavedConfig()
+  loadSavedConfigs()
   
   // 监听提供商变化，重新加载
   window.addEventListener('storage', (e) => {

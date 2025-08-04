@@ -191,6 +191,8 @@
     "aiFeatures": {
       "title": "AI Features",
       "rewriteModel": "Text Rewrite Model",
+      "continueModel": "Continue Writing Model",
+      "summaryModel": "Summary Model",
       "selectProvider": "Select Provider",
       "selectModel": "Select Model",
       "noProvidersConfigured": "No providers configured. Please configure them in Provider Settings first.",

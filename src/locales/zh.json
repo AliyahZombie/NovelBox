@@ -195,6 +195,8 @@
     "aiFeatures": {
       "title": "AI功能",
       "rewriteModel": "文本重写模型",
+      "continueModel": "续写模型", 
+      "summaryModel": "概括模型",
       "selectProvider": "选择提供商",
       "selectModel": "选择模型",
       "noProvidersConfigured": "未配置提供商。请先在提供商设置中配置。",
