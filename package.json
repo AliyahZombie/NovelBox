@@ -16,7 +16,8 @@
     "version-minor": "npm version minor && git push && git push --tags",
     "version-major": "npm version major && git push && git push --tags",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "dist-ci": "electron-builder --publish=never"
   },
   "keywords": [
     "electron",

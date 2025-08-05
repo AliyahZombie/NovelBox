@@ -58,6 +58,11 @@ const config = {
     ],
     category: 'Utility',
     maintainer: 'NovelBox Team <novelbox@example.com>'
+  },
+  // 添加publish配置，避免CI环境中要求GH_TOKEN
+  publish: {
+    provider: 'github',
+    releaseType: 'draft'
   }
 }
 

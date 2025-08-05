@@ -51,13 +51,13 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
-            build-cmd: npm run dist -- --linux
+            build-cmd: npm run dist -- --linux --publish=never
           - os: windows-latest
             platform: windows
-            build-cmd: npm run dist -- --win
+            build-cmd: npm run dist -- --win --publish=never
           - os: macos-latest
             platform: macos
-            build-cmd: npm run dist -- --mac
+            build-cmd: npm run dist -- --mac --publish=never
 
     runs-on: ${{ matrix.os }}
 
