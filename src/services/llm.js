@@ -3,8 +3,6 @@
  * 支持多个LLM提供商（OpenAI、Gemini等）的统一调用
  */
 
-import { systemPreferences } from "electron";
-
 // System Prompt
 const SystemPrompt = localStorage.getItem(('novelbox-system-prompt'));
 
