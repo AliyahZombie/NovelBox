@@ -438,23 +438,28 @@ class ContextManagerService {
   /**
    * 获取摘要生成进度
    */
-  async getSummaryProgress(novelId) {
+  async getSummaryProgress(novelId, chapters = null) {
     try {
-      const indexResult = await ElectronStorageService.loadChapterIndex(novelId)
-      if (!indexResult.success) {
-        return { success: false, error: '无法加载章节索引' }
+      let chaptersList = chapters
+      
+      // 如果没有提供章节数据，则从存储加载
+      if (!chaptersList) {
+        const indexResult = await ElectronStorageService.loadChapterIndex(novelId)
+        if (!indexResult.success) {
+          return { success: false, error: '无法加载章节索引' }
+        }
+        chaptersList = indexResult.data.chapters
       }
 
-      const chapters = indexResult.data.chapters
       const progress = {
-        total: chapters.length,
+        total: chaptersList.length,
         completed: 0,
         processing: 0,
         failed: 0,
         pending: 0
       }
 
-      for (const chapterInfo of chapters) {
+      for (const chapterInfo of chaptersList) {
         const context = await this.getChapterContext(novelId, chapterInfo.id)
         if (!context) {
           progress.pending++

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { useNovelsStore } from './novels'
 import { useUIStore } from './ui'
 import i18n from '@/locales/i18n'
+import { contextManager } from '@/services/contextManager'
 
 const t = i18n.global.t
 export const useChaptersStore = defineStore('chapters', {
@@ -42,6 +43,50 @@ export const useChaptersStore = defineStore('chapters', {
       if (this.currentChapter) {
         await novelsStore.saveNovels()
 
+        // 切换章节时检查是否需要自动摘要（只有内容有变动时才触发）
+        if (contextManager.isAutoSummaryEnabled() && this.currentChapter.content && this.currentChapter.content.trim().length > 100) {
+          try {
+            // 检查是否需要重新生成摘要
+            const needsNew = await contextManager.needsNewSummary(
+              novelsStore.currentNovel.id,
+              this.currentChapter.id,
+              this.currentChapter.content
+            )
+            
+            if (needsNew) {
+              // 先更新UI状态为processing，让用户看到正在处理
+              await contextManager.saveChapterContext(
+                novelsStore.currentNovel.id,
+                this.currentChapter.id,
+                {
+                  aiProcessingStatus: 'processing',
+                  summary: '',
+                  summaryUpdatedAt: null
+                }
+              )
+              
+              console.log(`开始为章节 "${this.currentChapter.title}" 生成摘要...`)
+              
+              // 后台异步生成摘要
+              contextManager.autoGenerateSummary(
+                novelsStore.currentNovel.id,
+                this.currentChapter.id,
+                this.currentChapter.content
+              ).then(result => {
+                if (result.success) {
+                  console.log(`章节 "${this.currentChapter.title}" 自动生成摘要完成`)
+                } else {
+                  console.warn(`章节 "${this.currentChapter.title}" 摘要生成失败:`, result.error)
+                }
+              }).catch(error => {
+                console.warn('自动摘要生成异常:', error)
+              })
+            }
+          } catch (error) {
+            console.warn('切换章节时自动摘要检查失败:', error)
+          }
+        }
+
         uiStore.showSaveMessage(t('editor.autoSaveIndicator'))
       }
 
@@ -68,6 +113,8 @@ export const useChaptersStore = defineStore('chapters', {
       novelsStore.currentNovel.chapters.push(newChapter)
       await novelsStore.saveNovels()
       uiStore.showSaveMessage(t('chapters.created'))
+      
+      // 触发自动摘要生成（新章节暂时跳过，因为内容为空）
       
       return newChapter
     },

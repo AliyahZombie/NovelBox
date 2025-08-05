@@ -224,9 +224,10 @@
     "license": "开源协议"
   },
   "wordCount": {
-    "million": "{count} m字",
+    "million": "{count} 百万",
     "count": "{count}字",
-    "kilo": "{count} 千字"
+    "kilo": "{count} 千",
+    "tenThousand": "{count} 万"
   },
   "oobe": {
     "finish": "结束",

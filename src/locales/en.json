@@ -244,8 +244,8 @@
   },
   "wordCount": {
     "count": "{count} words",
-    "kilo": "{count}k words",
-    "million": "{count}m words"
+    "kilo": "{count}k",
+    "million": "{count}m"
   },
   "aiPanel": {
     "tabs": {

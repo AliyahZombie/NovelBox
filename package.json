@@ -1,6 +1,6 @@
 {
   "name": "novelbox",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "AI辅助的小说创作工具",
   "main": "main.js",
   "scripts": {

@@ -61,15 +61,6 @@
           <span v-if="batchProcessing">{{ $t('contextManager.generating') }}</span>
           <span v-else>{{ $t('contextManager.generateAll') }}</span>
         </button>
-        
-        <button 
-          class="action-btn secondary"
-          @click="generateFullBookSummary"
-          :disabled="fullBookProcessing || progress.completed === 0"
-        >
-          <span v-if="fullBookProcessing">{{ $t('contextManager.generating') }}</span>
-          <span v-else>{{ $t('contextManager.generateFullBook') }}</span>
-        </button>
       </div>
 
       <!-- 章节列表 -->
@@ -132,16 +123,6 @@
         </div>
       </div>
 
-      <!-- 全书摘要显示 -->
-      <div v-if="fullBookSummary" class="full-book-summary">
-        <div class="summary-header">
-          <h4>{{ $t('contextManager.fullBookSummary') }}</h4>
-          <button @click="fullBookSummary = null" class="close-btn">×</button>
-        </div>
-        <div class="summary-content">
-          {{ fullBookSummary }}
-        </div>
-      </div>
     </div>
 
     <!-- 摘要查看弹窗 -->
@@ -189,10 +170,8 @@ export default {
     
     const loading = ref(false)
     const batchProcessing = ref(false)
-    const fullBookProcessing = ref(false)
     const autoSummaryEnabled = ref(true)
     const viewingSummary = ref(null)
-    const fullBookSummary = ref(null)
     
     const progress = reactive({
       total: 0,
@@ -232,34 +211,35 @@ export default {
       
       loading.value = true
       try {
-        // 获取摘要进度
-        const progressResult = await contextManager.getSummaryProgress(novelsStore.currentNovel.id)
+        // 直接使用novelsStore中的章节数据
+        const chapters = novelsStore.currentNovel.chapters || []
+        
+        // 获取摘要进度，传入章节数据确保一致性
+        const progressResult = await contextManager.getSummaryProgress(novelsStore.currentNovel.id, chapters)
         if (progressResult.success) {
           Object.assign(progress, progressResult.data)
         }
 
-        // 获取章节列表和状态
-        const indexResult = await ElectronStorageService.loadChapterIndex(novelsStore.currentNovel.id)
-        if (indexResult.success) {
-          const chapters = indexResult.data.chapters
-          const chaptersWithStatusData = []
+        const chaptersWithStatusData = []
 
-          for (const chapter of chapters) {
-            const context = await contextManager.getChapterContext(novelsStore.currentNovel.id, chapter.id)
-            chaptersWithStatusData.push({
-              ...chapter,
-              status: context?.aiProcessingStatus || 'pending',
-              summary: context?.summary || '',
-              summaryUpdatedAt: context?.summaryUpdatedAt || null
-            })
-          }
-
-          chaptersWithStatus.value = chaptersWithStatusData
+        for (const chapter of chapters) {
+          const context = await contextManager.getChapterContext(novelsStore.currentNovel.id, chapter.id)
+          chaptersWithStatusData.push({
+            ...chapter,
+            status: context?.aiProcessingStatus || 'pending',
+            summary: context?.summary || '',
+            summaryUpdatedAt: context?.summaryUpdatedAt || null
+          })
         }
+
+        chaptersWithStatus.value = chaptersWithStatusData
+        
+        console.log('刷新完成，章节数量:', chaptersWithStatusData.length)
+        console.log('进度统计:', progress)
       } catch (error) {
         console.error('刷新进度失败:', error)
         const errorMessage = error.message || t('contextManager.refreshError')
-        const details = `刷新信息:\n小说ID: ${novelsStore.currentNovel?.id}\n小说标题: ${novelsStore.currentNovel?.title}\n错误详情: ${error.stack || error.message || '未知错误'}`
+        const details = `刷新信息:\n小说ID: ${novelsStore.currentNovel?.id}\n小说标题: ${novelsStore.currentNovel?.title}\n章节数量: ${novelsStore.currentNovel?.chapters?.length || 0}\n错误详情: ${error.stack || error.message || '未知错误'}`
 
         uiStore.showError(
           `刷新进度失败: ${errorMessage}`,
@@ -273,13 +253,20 @@ export default {
     // 生成单个章节摘要
     const generateSummary = async (chapter) => {
       try {
-        // 获取章节内容
-        const chapterResult = await ElectronStorageService.loadChapter(novelsStore.currentNovel.id, chapter.id)
-        if (!chapterResult.success) {
-          throw new Error('无法加载章节内容')
+        // 直接使用章节数据中的内容，不需要重新加载
+        let content = chapter.content
+        
+        // 如果章节数据中没有内容，尝试从store中获取
+        if (!content) {
+          const storeChapter = novelsStore.currentNovel.chapters.find(c => c.id === chapter.id)
+          content = storeChapter?.content || ''
+        }
+        
+        // 如果还是没有内容，则提示错误
+        if (!content || content.trim().length === 0) {
+          throw new Error('章节内容为空，无法生成摘要')
         }
 
-        const content = chapterResult.data.content
         const result = await contextManager.generateChapterSummary(
           novelsStore.currentNovel.id, 
           chapter.id, 
@@ -297,8 +284,9 @@ export default {
         console.error('生成摘要失败:', error)
         // 显示更详细的错误信息，包括章节信息
         const chapterInfo = `章节: ${chapter.title} (ID: ${chapter.id})`
+        const contentInfo = `内容长度: ${chapter.content?.length || 0} 字符`
         const errorMessage = error.message || t('contextManager.generateError')
-        const details = `${chapterInfo}\n错误详情: ${error.stack || error.message || '未知错误'}`
+        const details = `${chapterInfo}\n${contentInfo}\n错误详情: ${error.stack || error.message || '未知错误'}`
 
         uiStore.showError(
           `生成章节摘要失败: ${errorMessage}`,
@@ -324,6 +312,9 @@ export default {
         uiStore.showSaveMessage(t('contextManager.batchGenerateComplete'))
       } catch (error) {
         console.error('批量生成失败:', error)
+        const pendingChapters = chaptersWithStatus.value.filter(c => 
+          c.status === 'pending' || c.status === 'failed'
+        )
         const errorMessage = error.message || t('contextManager.batchGenerateError')
         const details = `批量处理信息:\n总章节数: ${chaptersWithStatus.value.length}\n待处理章节数: ${pendingChapters.length}\n错误详情: ${error.stack || error.message || '未知错误'}`
 
@@ -333,34 +324,6 @@ export default {
         )
       } finally {
         batchProcessing.value = false
-      }
-    }
-
-    // 生成全书摘要
-    const generateFullBookSummary = async () => {
-      if (fullBookProcessing.value) return
-      
-      fullBookProcessing.value = true
-      try {
-        const result = await contextManager.generateFullBookSummary(novelsStore.currentNovel.id)
-        
-        if (result.success) {
-          fullBookSummary.value = result.data
-          uiStore.showSaveMessage(result.message)
-        } else {
-          throw new Error(result.error)
-        }
-      } catch (error) {
-        console.error('生成全书摘要失败:', error)
-        const errorMessage = error.message || t('contextManager.fullBookGenerateError')
-        const details = `全书信息:\n小说ID: ${novelsStore.currentNovel?.id}\n小说标题: ${novelsStore.currentNovel?.title}\n总章节数: ${progress.total}\n已完成摘要: ${progress.completed}\n错误详情: ${error.stack || error.message || '未知错误'}`
-
-        uiStore.showError(
-          `生成全书摘要失败: ${errorMessage}`,
-          details
-        )
-      } finally {
-        fullBookProcessing.value = false
       }
     }
 
@@ -403,10 +366,8 @@ export default {
     return {
       loading,
       batchProcessing,
-      fullBookProcessing,
       autoSummaryEnabled,
       viewingSummary,
-      fullBookSummary,
       progress,
       chaptersWithStatus,
       progressPercentage,
@@ -415,7 +376,6 @@ export default {
       refreshProgress,
       generateSummary,
       generateAllSummaries,
-      generateFullBookSummary,
       viewSummary,
       closeSummaryModal,
       regenerateSummary,
@@ -658,25 +618,6 @@ export default {
   gap: 6px;
 }
 
-.full-book-summary {
-  padding: 16px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-}
-
-.summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.summary-header h4 {
-  margin: 0;
-  color: var(--text-primary);
-}
-
 .close-btn {
   background: none;
   border: none;
@@ -689,12 +630,6 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.summary-content {
-  line-height: 1.6;
-  color: var(--text-primary);
-  white-space: pre-wrap;
 }
 
 .summary-modal {
