@@ -3,6 +3,11 @@
  * 支持多个LLM提供商（OpenAI、Gemini等）的统一调用
  */
 
+import { systemPreferences } from "electron";
+
+// System Prompt
+const SystemPrompt = localStorage.getItem(('novelbox-system-prompt'));
+
 /**
  * LLM请求参数接口
  */
@@ -120,7 +125,9 @@ export class OpenAIProvider extends LLMProvider {
 
       const body = {
         model: modelName,
-        messages: [{ role: 'user', content: request.prompt }],
+        messages: [
+          { role: 'system', content: SystemPrompt },
+          { role: 'user', content: request.prompt }],
         max_tokens: request.maxTokens,
         temperature: request.temperature,
         top_p: request.topP,
@@ -167,7 +174,8 @@ export class OpenAIProvider extends LLMProvider {
 
       const body = {
         model: modelName,
-        messages: [{ role: 'user', content: request.prompt }],
+        messages: [ { role: 'system', content: SystemPrompt },
+          { role: 'user', content: request.prompt }],
         max_tokens: request.maxTokens,
         temperature: request.temperature,
         top_p: request.topP,
@@ -276,12 +284,22 @@ export class GeminiProvider extends LLMProvider {
       const safetySettings = [
         {
           category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          threshold: 'OFF'
         },
         {
           category: 'HARM_CATEGORY_HARASSMENT',
-          threshold: 'BLOCK_NONE'
+          threshold: 'OFF'
+        },
+        ,
+        {
+          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+          threshold: 'OFF'
+        },
+        {
+          category: 'HARM_CATEGORY_HATE_SPEECH',
+          threshold: 'OFF'
         }
+        
       ]
 
       const body = {
@@ -295,6 +313,12 @@ export class GeminiProvider extends LLMProvider {
           topK: request.topK,
           stopSequences: request.stopSequences.length > 0 ? request.stopSequences : undefined
         },
+        systemInstruction: [
+          {
+            text: SystemPrompt
+          }
+        ],
+
         safetySettings
       }
 
@@ -343,15 +367,25 @@ export class GeminiProvider extends LLMProvider {
         'Content-Type': 'application/json'
       }
 
-      const safetySettings = [
+     const safetySettings = [
         {
           category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          threshold: 'OFF'
         },
         {
           category: 'HARM_CATEGORY_HARASSMENT',
-          threshold: 'BLOCK_NONE'
+          threshold: 'OFF'
+        },
+        ,
+        {
+          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+          threshold: 'OFF'
+        },
+        {
+          category: 'HARM_CATEGORY_HATE_SPEECH',
+          threshold: 'OFF'
         }
+        
       ]
 
       const body = {
@@ -365,6 +399,11 @@ export class GeminiProvider extends LLMProvider {
           topK: request.topK,
           stopSequences: request.stopSequences.length > 0 ? request.stopSequences : undefined
         },
+        systemInstruction: [
+          {
+            text: SystemPrompt
+          }
+        ],
         safetySettings
       }
 

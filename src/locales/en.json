@@ -201,7 +201,9 @@
         "contract": "Contract",
         "beautify": "Beautify",
         "custom": "Custom Prompt"
-      }
+      },
+      "systemPrompt": "System Prompt",
+      "systemPromptSaved": "System prompt saved successfully"
     },
     "provider": {
       "title": "Provider Settings",
@@ -370,5 +372,11 @@
     "validationFailed": "Validation failed",
     "error": "Migration error: {error}",
     "migrationCompleteMessage": "Data migration completed successfully"
+  },
+  "toast": {
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info"
   }
 }

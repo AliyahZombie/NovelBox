@@ -2,6 +2,19 @@
   <div class="settings-section">
     <h2 class="section-title">{{ $t('settings.aiFeatures.title') }}</h2>
     
+    <div class="setting-item"> 
+      <label class="setting-label">{{ $t('settings.aiFeatures.systemPrompt') }}</label>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+      <textarea 
+        v-model="systemPrompt" 
+        class="setting-textarea"
+        style="width: 100%; height: 100px;"
+        @change="saveSystemPrompt"
+      ></textarea>
+      <button class="save-button" @click="saveSystemPrompt" style="width: fit-content; height: fit-content; background-color:var(--btn-primary-bg);">{{ $t('common.save') }}</button>
+      </div>
+    </div>
+
     <!-- 文本重写模型配置 -->
     <div class="setting-item">
       <label class="setting-label">{{ $t('settings.aiFeatures.rewriteModel') }}</label>
@@ -154,14 +167,29 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { llmService } from '@/services'
+import { toast } from '@/services/toast'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // 配置对象
 const rewriteConfig = ref({ provider: '', model: '' })
 const continueConfig = ref({ provider: '', model: '' })
 const summaryConfig = ref({ provider: '', model: '' })
+const systemPrompt = ref('')
 
 const availableProviders = ref([])
 
+const saveSystemPrompt = (prompt) => {
+  console.log('保存系统提示：', systemPrompt.value)
+  localStorage.setItem('novelbox-system-prompt', systemPrompt.value)
+  toast.success(t('settings.aiFeatures.systemPromptSaved'), t('common.save'))
+}
+const loadSystemPrompt = () => {
+  const prompt = localStorage.getItem('novelbox-system-prompt')
+  systemPrompt.value = prompt || ''
+}
+loadSystemPrompt()
 // 获取指定提供商的可用模型
 const getModelsForProvider = (providerKey) => {
   if (!providerKey) return []

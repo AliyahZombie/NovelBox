@@ -104,7 +104,7 @@ class ToastService {
   success(message, title = '', details = '') {
     return this.show({
       message,
-      title: title || '成功',
+      title: title || '成功',  // 这里应该由调用者传入翻译后的文本
       details,
       type: 'success'
     })
@@ -116,7 +116,7 @@ class ToastService {
   error(message, title = '', details = '') {
     return this.show({
       message,
-      title: title || '错误',
+      title: title || '错误',  // 这里应该由调用者传入翻译后的文本
       details,
       type: 'error',
       duration: 10000 // 错误消息显示更长时间
@@ -129,7 +129,7 @@ class ToastService {
   warning(message, title = '', details = '') {
     return this.show({
       message,
-      title: title || '警告',
+      title: title || '警告',  // 这里应该由调用者传入翻译后的文本
       details,
       type: 'warning'
     })
@@ -141,7 +141,7 @@ class ToastService {
   info(message, title = '', details = '') {
     return this.show({
       message,
-      title: title || '提示',
+      title: title || '提示',  // 这里应该由调用者传入翻译后的文本
       details,
       type: 'info'
     })

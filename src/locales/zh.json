@@ -195,7 +195,7 @@
     "aiFeatures": {
       "title": "AI功能",
       "rewriteModel": "文本重写模型",
-      "continueModel": "续写模型", 
+      "continueModel": "续写模型",
       "summaryModel": "概括模型",
       "selectProvider": "选择提供商",
       "selectModel": "选择模型",
@@ -205,7 +205,9 @@
         "contract": "缩写",
         "beautify": "美化文笔",
         "custom": "自定义提示"
-      }
+      },
+      "systemPrompt": "系统提示",
+      "systemPromptSaved": "系统提示保存成功"
     },
     "developer": {
       "title": "开发者选项",
@@ -370,5 +372,11 @@
     "validationFailed": "验证失败",
     "error": "迁移错误：{error}",
     "migrationCompleteMessage": "数据迁移成功完成"
+  },
+  "toast": {
+    "success": "成功",
+    "error": "错误",
+    "warning": "警告",
+    "info": "信息"
   }
 }
