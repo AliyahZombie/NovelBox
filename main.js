@@ -1,9 +1,40 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const url = require('url');
 const fs = require('fs').promises;
 const process = require('process');
 
+// Log to file
+const fsSync = require('fs');
+const logDir = path.join(app.getPath('userData'), '.logs');
+if (!fsSync.existsSync(logDir)) {
+  fsSync.mkdirSync(logDir, { recursive: true });
+}
+const logFile = path.join(logDir, 'combined.log');
+const logStream = fsSync.createWriteStream(logFile, { flags: 'a' });
+
+const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+const originalStderrWrite = process.stderr.write.bind(process.stderr);
+
+process.stdout.write = (chunk, encoding, callback) => {
+  if (typeof chunk === 'string') {
+    logStream.write(chunk);
+  }
+  return originalStdoutWrite(chunk, encoding, callback);
+};
+
+process.stderr.write = (chunk, encoding, callback) => {
+  if (typeof chunk === 'string') {
+    logStream.write(chunk);
+  }
+  return originalStderrWrite(chunk, encoding, callback);
+};
+
+console.log(`Log file initialized at: ${logFile}\n`);
+
+
 // 导入新的存储服务
+
 let NovelStorageService;
 let storageServiceInitialized = false;
 
@@ -11,7 +42,14 @@ async function initializeStorageService() {
   if (!storageServiceInitialized) {
     try {
       console.log('Initializing storage service...');
-      const module = await import('./src/services/storage.js');
+      // 在打包后和开发环境中使用不同的路径
+      const storagePath = app.isPackaged
+        ? path.join(__dirname, 'src/services/storage.js')
+        : './src/services/storage.js';
+      
+      const storageURL = app.isPackaged ? url.pathToFileURL(storagePath).href : storagePath;
+
+      const module = await import(storageURL);
       NovelStorageService = module.default || module.NovelStorageService;
       console.log('Storage service class loaded:', !!NovelStorageService);
       console.log('Available exports:', Object.keys(module));
@@ -35,24 +73,22 @@ const createWindow = () => {
     }
   });
 
-  // In development, load from Vite dev server, in production load from dist folder
-  if (process.env.NODE_ENV === 'development') {
-    // Wait for Vite dev server to be ready
+  // 根据环境加载URL或文件
+  if (!app.isPackaged) {
+    // 开发环境：加载Vite开发服务器的URL
     mainWindow.loadURL('http://127.0.0.1:5173').catch(err => {
-      console.log('Failed to load URL, retrying in 1 second...');
+      console.error('Failed to load URL, retrying in 1 second...', err);
       setTimeout(() => {
         mainWindow.loadURL('http://127.0.0.1:5173').catch(err => {
           console.error('Failed to load URL after retry:', err);
         });
       }, 1000);
     });
-  } else {
-    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
-  }
-  
-  // Open DevTools in development
-  if (process.env.NODE_ENV === 'development') {
+    // 自动打开开发者工具
     mainWindow.webContents.openDevTools();
+  } else {
+    // 生产环境：加载打包后的index.html
+    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
 };
 

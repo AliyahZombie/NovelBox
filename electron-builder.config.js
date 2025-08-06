@@ -8,11 +8,13 @@ const config = {
     output: 'dist'
   },
   files: [
-    'dist/**/*',
+    'dist/',
+    'src/services/**\/*',
+    'src/locales/**\/*',
     'main.js',
     'preload.js',
     'package.json',
-    '!node_modules/**/*'
+    '!node_modules/**\/*'
   ],
   extends: null,
   win: {

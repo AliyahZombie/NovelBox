@@ -15,8 +15,8 @@
     "version-patch": "npm version patch && git push && git push --tags",
     "version-minor": "npm version minor && git push && git push --tags",
     "version-major": "npm version major && git push && git push --tags",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder",
+        "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
     "dist-ci": "electron-builder --publish=never"
   },
   "keywords": [
@@ -44,7 +44,7 @@
   "dependencies": {
     "pinia": "^3.0.3",
     "vue": "^3.5.18",
-    "vue-i18n": "^12.0.0-alpha.3",
+    "vue-i18n": "^11.1.11",
     "vue-router": "^4.5.1"
   },
   "build": {
