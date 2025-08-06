@@ -43,23 +43,7 @@
           <span class="info-text">AGPL-3.0</span>
         </div>
 
-        <div class="info-card">
-          <div class="info-header">
-            <span class="info-icon">🔗</span>
-            <h3 class="info-title">LinuxDO</h3>
-          </div>
-          <a href="https://linux.do/u/curaalizm" target="_blank" class="info-link">无水硫酸铜</a>
-        </div>
-
-        <div class="info-card">
-          <div class="info-header">
-            <span class="info-icon">🔗</span>
-            <h3 class="info-title">吾爱破解</h3>
-          </div>
-          <a href="https://www.52pojie.cn/?2413593" target="_blank" class="info-link">
-            curaalizm
-          </a>
-        </div>
+        
       </div>
     </div>
   </div>

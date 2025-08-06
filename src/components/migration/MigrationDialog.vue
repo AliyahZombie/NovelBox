@@ -547,25 +547,40 @@ export default {
   font-size: 0.9rem;
   font-weight: 500;
   transition: all 0.2s;
+  min-width: 80px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .action-btn.primary {
-  background: var(--primary-color);
+  background: #4a90e2;
   color: white;
+  box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+}
+
+.action-btn.primary:hover:not(:disabled) {
+  background: #357abd;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(74, 144, 226, 0.4);
 }
 
 .action-btn.secondary {
-  background: var(--secondary-color);
-  color: white;
+  background: #f1f3f4;
+  color: #333;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn.secondary:hover:not(:disabled) {
+  background: #e0e0e0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .action-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.action-btn:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  transform: none;
+  box-shadow: none;
 }
 </style>

@@ -416,18 +416,30 @@ export default {
 }
 
 .refresh-btn {
-  padding: 6px 12px;
-  background: var(--secondary-color);
+  padding: 8px 16px;
+  background: #2563eb;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-width: 80px;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.4);
 }
 
 .refresh-btn:disabled {
-  opacity: 0.6;
+  background: #94a3b8;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(148, 163, 184, 0.3);
 }
 
 .manager-content {
@@ -494,32 +506,86 @@ export default {
 }
 
 .action-btn {
-  padding: 8px 16px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 500;
   transition: all 0.2s;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .action-btn.primary {
-  background: var(--primary-color);
+  background: #059669;
   color: white;
+  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.3);
+}
+
+.action-btn.primary:hover:not(:disabled) {
+  background: #047857;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(5, 150, 105, 0.4);
+}
+
+.action-btn.primary:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(148, 163, 184, 0.3);
 }
 
 .action-btn.secondary {
-  background: var(--secondary-color);
+  background: #dc2626;
   color: white;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+}
+
+.action-btn.secondary:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.4);
+}
+
+.action-btn.secondary:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(148, 163, 184, 0.3);
 }
 
 .action-btn.small {
-  padding: 4px 8px;
+  padding: 6px 12px;
   font-size: 0.8rem;
+  min-width: auto;
 }
 
-.action-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.action-btn.view {
+  background: #7c3aed;
+  color: white;
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.3);
+}
+
+.action-btn.view:hover:not(:disabled) {
+  background: #6d28d9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(124, 58, 237, 0.4);
+}
+
+.action-btn.generate {
+  background: #ea580c;
+  color: white;
+  box-shadow: 0 2px 4px rgba(234, 88, 12, 0.3);
+}
+
+.action-btn.generate:hover:not(:disabled) {
+  background: #c2410c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(234, 88, 12, 0.4);
 }
 
 .chapters-list {

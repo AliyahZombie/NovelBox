@@ -1,6 +1,6 @@
 {
   "name": "novelbox",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "AI辅助的小说创作工具",
   "main": "main.js",
   "scripts": {
@@ -15,7 +15,7 @@
     "version-patch": "npm version patch && git push && git push --tags",
     "version-minor": "npm version minor && git push && git push --tags",
     "version-major": "npm version major && git push && git push --tags",
-        "pack": "npm run build && electron-builder --dir",
+    "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "dist-ci": "electron-builder --publish=never"
   },

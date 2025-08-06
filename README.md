@@ -14,7 +14,14 @@ NovelBox aims to assist in novel writing through the integration of AI tools. Cu
 *   **AI Integration**
     *   Natively supports **OpenAI** and **Google Gemini** compatible APIs.
     *   Built with an extensible architecture, making it easy to add new AI services.
-    *   Currently only supports AI-powered text rewriting.
+    *   AI-powered functions including rewrite, continue writing, and summary generation.
+
+*   **Context Manager**
+    * Context Manager automatically summarizes each chapter, feeding the AI crucial context. Say goodbye to plots that go astray! The AI will now remember key events and character arcs, ensuring your story stays consistent and coherent.
+
+*   **World Book**
+    *   Use World Book to store your world background, rule sand character profiles to provide references for AI while generating content based on your story.
+
 
 *   **Novel Editor**
     *   Three-column writing panel.
